@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>X 推荐检查器</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <h1>X 推荐检查器</h1>
+        <div class="header-actions">
+          <button id="home" class="text-button hidden" type="button">返回首页</button>
+          <button id="refresh" class="text-button hidden" type="button">重新检查</button>
+          <span id="version" class="header-version"></span>
+        </div>
+      </header>
+
+      <main class="content" aria-live="polite">
+        <section id="idle" class="screen">
+          <p class="intro">检查你的账号和帖子是否被推荐算法标记</p>
+          <section class="requirements">
+            <h2>使用条件</h2>
+            <ul>
+              <li>已登录 X</li>
+              <li>账号注册满 1 年</li>
+              <li>上月至少发布 10 条帖子</li>
+            </ul>
+          </section>
+          <button id="start" class="primary" type="button">检查我的账号</button>
+          <p class="privacy">数据仅在本机处理</p>
+          <hr class="section-divider" />
+          <section class="recommended-follow">
+            <h2>推荐关注</h2>
+            <div class="follow-actions">
+              <a href="https://x.com/web3_fising" target="_blank" rel="noreferrer">web3渔夫</a>
+              <a href="https://x.com/Bqlsj2023" target="_blank" rel="noreferrer">币圈老司机🔶BNB</a>
+            </div>
+          </section>
+        </section>
+
+        <section id="loading" class="screen hidden loading">
+          <span class="spinner" aria-hidden="true"></span>
+          <p>正在读取 X 官方报告……</p>
+        </section>
+
+        <section id="error" class="screen hidden">
+          <h2>暂时无法完成检查</h2>
+          <p id="error-message" class="muted"></p>
+          <button id="retry" class="primary" type="button">重新检查</button>
+        </section>
+
+        <section id="result" class="screen hidden">
+          <h2 class="report-title">检查报告</h2>
+          <p id="report-summary" class="report-summary"></p>
+
+          <section class="label-section">
+            <h2>账号标签</h2>
+            <div id="account-labels" class="label-list"></div>
+          </section>
+
+          <section class="label-section">
+            <h2>帖子标签 <span id="post-label-count" class="count"></span></h2>
+            <div id="post-labels" class="label-list"></div>
+          </section>
+
+          <details class="raw-report">
+            <summary>查看原始报告</summary>
+            <pre id="raw-json"></pre>
+          </details>
+
+          <section class="unchecked-section">
+            <h2>检查通过项</h2>
+            <p>以下标签已检查，均未命中。</p>
+            <strong class="unchecked-group-title">账号</strong>
+            <ul id="unchecked-account-labels" class="unchecked-list"></ul>
+            <strong class="unchecked-group-title">帖子</strong>
+            <ul id="unchecked-post-labels" class="unchecked-list"></ul>
+          </section>
+
+          <aside class="follow-card">
+            <strong>结果有帮助？</strong>
+            <p>关注作者，获取 X 算法研究和实用增长工具</p>
+            <div class="follow-actions">
+              <a href="https://x.com/web3_fising" target="_blank" rel="noreferrer">关注 @web3_fising</a>
+              <a href="https://x.com/Bqlsj2023" target="_blank" rel="noreferrer">关注 @Bqlsj2023</a>
+            </div>
+          </aside>
+        </section>
+      </main>
+
+    </div>
+
+    <script type="module" src="popup.mjs"></script>
+  </body>
+</html>
