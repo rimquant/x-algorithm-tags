@@ -2,20 +2,23 @@
 set -eu
 
 cd "$(dirname "$0")"
+root=$PWD
 version=$(node -p 'JSON.parse(require("fs").readFileSync("manifest.json", "utf8")).version')
-output=${1:-"../x-recommendation-checker-v${version}.zip"}
+tag="v$version"
+output="$root/dist/x-recommendation-checker-$tag.zip"
+mode=${1:-build}
 
-case "$output" in
-  /*) ;;
-  *) output="$PWD/$output" ;;
+case "$mode" in
+  build|--publish) ;;
+  *) echo "Usage: ./release.sh [--publish]" >&2; exit 2 ;;
 esac
 
-if [ -e "$output" ]; then
-  echo "Refusing to overwrite: $output" >&2
+if [ -n "${GITHUB_REF_NAME:-}" ] && [ "$GITHUB_REF_NAME" != "$tag" ]; then
+  echo "Tag $GITHUB_REF_NAME does not match manifest version $version" >&2
   exit 1
 fi
 
-mkdir -p "$(dirname "$output")"
+mkdir -p "$root/dist"
 tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/x-recommendation-checker.XXXXXX")
 archive="$tmp_dir/release.zip"
 trap 'rm -f "$archive"; rmdir "$tmp_dir" 2>/dev/null || true' EXIT INT TERM
@@ -31,3 +34,28 @@ unzip -tq "$archive" >/dev/null
 mv "$archive" "$output"
 
 echo "Created $output"
+
+if [ "$mode" = "--publish" ]; then
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "Commit all changes before publishing" >&2
+    exit 1
+  fi
+  if [ "$(git branch --show-current)" != "main" ]; then
+    echo "Publish from the main branch" >&2
+    exit 1
+  fi
+
+  git fetch --quiet --tags origin main
+  if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+    echo "Local main must match origin/main" >&2
+    exit 1
+  fi
+  if git show-ref --verify --quiet "refs/tags/$tag"; then
+    echo "Tag already exists: $tag" >&2
+    exit 1
+  fi
+
+  git tag -a "$tag" -m "Release $tag"
+  git push origin "$tag"
+  echo "Pushed $tag; GitHub Actions will create the release"
+fi
