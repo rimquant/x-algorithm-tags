@@ -28,9 +28,23 @@
   });
 
   function findDownloadButton() {
-    return [...document.querySelectorAll("button")].find((button) => {
+    const signal = document.querySelector(
+      'a[download], a[href^="blob:"], [data-testid*="download" i], [data-icon*="download" i]',
+    );
+    const signaledButton = signal?.closest('button, a, [role="button"]');
+    if (
+      signaledButton
+      && !signaledButton.disabled
+      && signaledButton.getAttribute("aria-disabled") !== "true"
+    ) {
+      return signaledButton;
+    }
+
+    return [...document.querySelectorAll('button, [role="button"]')].find((button) => {
       const label = `${button.getAttribute("aria-label") || ""} ${button.textContent || ""}`.trim();
-      return /(^|\s)(Download|下载)(\s|$)/.test(label) && !button.disabled;
+      return /\bdownload\b|下载/i.test(label)
+        && !button.disabled
+        && button.getAttribute("aria-disabled") !== "true";
     });
   }
 

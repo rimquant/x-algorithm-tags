@@ -50,13 +50,7 @@ summary:focus-visible {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.header-version {
-  color: #536471;
-  font-size: 11px;
-  white-space: nowrap;
+  gap: 8px;
 }
 
 h1,
@@ -150,13 +144,101 @@ h2 {
   text-align: center;
 }
 
-.text-button {
+.icon-button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
   border: 0;
-  padding: 4px;
+  border-radius: 50%;
+  padding: 0;
   color: #1d9bf0;
   background: transparent;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 20px;
+  line-height: 1;
+  list-style: none;
+}
+
+.icon-button:hover {
+  background: #eff3f4;
+}
+
+.settings {
+  position: relative;
+}
+
+.settings > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings > summary::marker {
+  content: "";
+}
+
+.settings-menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 190px;
+  border: 1px solid #cfd9de;
+  border-radius: 12px;
+  padding: 12px;
+  background: #ffffff;
+  box-shadow: 0 6px 24px rgb(15 20 25 / 14%);
+}
+
+.settings-title {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.settings-language {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px;
+  color: #0f1419;
+  background: #f7f9f9;
+}
+
+.language-options {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #cfd9de;
+}
+
+.language-option {
+  border: 0;
+  border-radius: 5px;
+  padding: 3px 5px;
+  color: #536471;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.language-option:hover,
+.language-option[aria-pressed="true"] {
+  color: #1d9bf0;
+  background: #ffffff;
+}
+
+.settings-version {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  border-top: 1px solid #eff3f4;
+  padding-top: 10px;
+  color: #536471;
+  font-size: 11px;
 }
 
 .loading {
@@ -237,6 +319,12 @@ h2 {
   gap: 12px;
 }
 
+:lang(en) .label-row {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .label-title {
   font-size: 14px;
   font-weight: 700;
@@ -304,8 +392,10 @@ h2 {
 
 .unchecked-list li {
   display: flex;
+  min-width: 0;
   justify-content: space-between;
   gap: 6px;
+  overflow-wrap: anywhere;
   color: #536471;
   font-size: 12px;
 }

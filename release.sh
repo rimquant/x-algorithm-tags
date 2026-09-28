@@ -24,10 +24,10 @@ archive="$tmp_dir/release.zip"
 trap 'rm -f "$archive"; rmdir "$tmp_dir" 2>/dev/null || true' EXIT INT TERM
 
 node test.mjs
-zip -q "$archive" \
+zip -qr "$archive" \
   LICENSE \
-  manifest.json \
-  background.js capture-main.js content.js labels.mjs report.mjs \
+  manifest.json _locales \
+  background.js capture-main.js content.js i18n.mjs labels.mjs report.mjs \
   popup.html popup.css popup.mjs \
   icons/icon-16.png icons/icon-32.png icons/icon-48.png icons/icon-128.png
 unzip -tq "$archive" >/dev/null

@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "X 推荐检查器",
+  "name": "__MSG_extensionName__",
   "version": "0.1.2",
-  "description": "检查你的账号和帖子是否被推荐算法标记。",
+  "default_locale": "zh_CN",
+  "description": "__MSG_extensionDescription__",
   "action": {
-    "default_title": "X 推荐检查器",
+    "default_title": "__MSG_extensionName__",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",

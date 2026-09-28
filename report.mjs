@@ -1,3 +1,5 @@
+import { normalizeLanguage, t } from "./i18n.mjs";
+
 const MAX_TEXT_LENGTH = 20_000;
 
 function text(value, maxLength = MAX_TEXT_LENGTH) {
@@ -59,47 +61,47 @@ export function normalizeReport(report) {
   };
 }
 
-export function formatPeriod(period) {
+export function formatPeriod(period, language = "zh") {
   const start = period?.startDate;
   const end = period?.endDate;
-  if (!start) return "最近一期报告";
+  if (!start) return t("latestReport", language);
 
   const date = new Date(`${start}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return end ? `${start} 至 ${end}` : start;
+  if (Number.isNaN(date.getTime())) return end ? `${start}${t("dateRangeSeparator", language)}${end}` : start;
 
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(normalizeLanguage(language) === "zh" ? "zh-CN" : "en", {
     year: "numeric",
     month: "long",
     timeZone: "UTC",
   }).format(date);
 }
 
-export function getReportSummary(report) {
+export function getReportSummary(report, language = "zh") {
   const parts = [
-    { text: "根据您 " },
-    { text: formatPeriod(report.period), highlight: true },
-    { text: "的数据，" },
+    { text: t("summaryPrefix", language) },
+    { text: formatPeriod(report.period, language), highlight: true },
+    { text: t("summaryDataSuffix", language) },
   ];
   const accountCount = report.accountLabels.length;
   const postCount = report.postLabels.length;
 
   if (accountCount === 0 && postCount === 0) {
-    parts.push({ text: "本期报告中未发现已知的限制推荐标签。" });
+    parts.push({ text: t("summaryClear", language) });
     return parts;
   }
 
   if (accountCount > 0) {
     parts.push(
-      { text: "您的账户命中了 " },
+      { text: t("summaryAccountPrefix", language) },
       { text: String(accountCount), highlight: true },
-      { text: " 个标签，请查看下面的详细信息。" },
+      { text: t("summaryAccountSuffix", language, { plural: accountCount === 1 ? "" : "s" }) },
     );
   }
   if (postCount > 0) {
     parts.push(
-      { text: "您在此周期内的推文命中了 " },
+      { text: t("summaryPostPrefix", language) },
       { text: String(postCount), highlight: true },
-      { text: " 个标签，请查看下面的详细信息。" },
+      { text: t("summaryPostSuffix", language, { plural: postCount === 1 ? "" : "s" }) },
     );
   }
   return parts;

@@ -1,17 +1,38 @@
 import { knownLabelTitles, translateLabel } from "./labels.mjs";
+import { normalizeLanguage, t } from "./i18n.mjs";
 import { getReportSummary } from "./report.mjs";
 
 const STATE_KEY = "appState";
+const LANGUAGE_KEY = "language";
 const screens = [...document.querySelectorAll(".screen")];
 const homeButton = document.querySelector("#home");
 const refreshButton = document.querySelector("#refresh");
+const settings = document.querySelector(".settings");
+const languageButtons = [...document.querySelectorAll("[data-language]")];
+let language = "zh";
+let currentState = { status: "idle" };
 
 document.querySelector("#version").textContent = `v${chrome.runtime.getManifest().version}`;
+
+function applyTranslations() {
+  document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = t(element.dataset.i18n, language);
+  });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+    const label = t(element.dataset.i18nAriaLabel, language);
+    element.setAttribute("aria-label", label);
+    element.setAttribute("title", label);
+  });
+  languageButtons.forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.language === language));
+  });
+}
 
 function showScreen(id) {
   screens.forEach((screen) => screen.classList.toggle("hidden", screen.id !== id));
   homeButton.classList.toggle("hidden", id !== "result");
-  refreshButton.classList.toggle("hidden", !["result", "error"].includes(id));
+  refreshButton.classList.toggle("hidden", id !== "result");
 }
 
 async function goHome() {
@@ -26,12 +47,12 @@ function clear(element) {
 function createClearState() {
   const element = document.createElement("div");
   element.className = "clear";
-  element.textContent = "🟢 未发现限流标签";
+  element.textContent = t("clear", language);
   return element;
 }
 
 function createLabelCard(kind, item) {
-  const translated = translateLabel(kind, item.label, item.effect);
+  const translated = translateLabel(kind, item, language);
   const card = document.createElement("article");
   card.className = "label-card";
 
@@ -47,10 +68,10 @@ function createLabelCard(kind, item) {
     const stats = document.createElement("span");
     stats.className = "label-stats";
     const count = item.totalPostsInMonth
-      ? `已标记 ${item.posts}/${item.totalPostsInMonth} 条`
-      : `已标记 ${item.posts} 条`;
+      ? t("markedOf", language, { posts: item.posts, total: item.totalPostsInMonth })
+      : t("marked", language, { posts: item.posts });
     stats.textContent = item.percentageOfPosts
-      ? `${count}（${item.percentageOfPosts}）`
+      ? language === "zh" ? `${count}（${item.percentageOfPosts}）` : `${count} (${item.percentageOfPosts})`
       : count;
     row.append(stats);
   }
@@ -66,13 +87,13 @@ function createLabelCard(kind, item) {
 function renderResult(report) {
   const summary = document.querySelector("#report-summary");
   clear(summary);
-  getReportSummary(report).forEach(({ text, highlight }) => {
+  getReportSummary(report, language).forEach(({ text, highlight }) => {
     if (!highlight) return summary.append(text);
     const strong = document.createElement("strong");
     strong.textContent = text;
     summary.append(strong);
   });
-  document.querySelector("#post-label-count").textContent = `（${report.postLabels.length} 类）`;
+  document.querySelector("#post-label-count").textContent = t("labelCount", language, { count: report.postLabels.length });
 
   const accountLabels = document.querySelector("#account-labels");
   const postLabels = document.querySelector("#post-labels");
@@ -95,15 +116,18 @@ function renderResult(report) {
 
   [["account", "#unchecked-account-labels", report.accountLabels], ["post", "#unchecked-post-labels", report.postLabels]]
     .forEach(([kind, selector, labels]) => {
-      const hitTitles = new Set(labels.map((item) => translateLabel(kind, item.label, item.effect).title));
+      const hitTitles = new Set(labels.map((item) => translateLabel(kind, item, "zh").title));
+      const chineseTitles = knownLabelTitles(kind);
+      const localizedTitles = knownLabelTitles(kind, language);
       const list = document.querySelector(selector);
       clear(list);
-      knownLabelTitles(kind).filter((title) => !hitTitles.has(title)).forEach((title) => {
+      chineseTitles.forEach((title, index) => {
+        if (hitTitles.has(title)) return;
         const item = document.createElement("li");
-        item.append(title);
+        item.append(localizedTitles[index]);
         const icon = document.createElement("span");
         icon.className = "unchecked-icon";
-        icon.setAttribute("aria-label", "未命中");
+        icon.setAttribute("aria-label", t("notMatched", language));
         icon.textContent = "✕";
         item.append(icon);
         list.append(item);
@@ -114,11 +138,14 @@ function renderResult(report) {
 }
 
 function render(state) {
+  currentState = state || { status: "idle" };
   if (!state || state.status === "idle") return showScreen("idle");
   if (state.status === "loading") return showScreen("loading");
   if (state.status === "success" && state.report) return renderResult(state.report);
 
-  document.querySelector("#error-message").textContent = state.message || "检查失败，请稍后重试。";
+  document.querySelector("#error-message").textContent = state.code
+    ? t(`error_${state.code}`, language)
+    : language === "zh" && state.message ? state.message : t("error_UNKNOWN", language);
   showScreen("error");
 }
 
@@ -127,18 +154,37 @@ async function startCheck() {
   try {
     await chrome.runtime.sendMessage({ type: "START_CHECK" });
   } catch {
-    render({ status: "error", message: "无法启动检查，请重新加载插件。" });
+    render({ status: "error", code: "START_FAILED" });
   }
+}
+
+async function setLanguage(event) {
+  language = normalizeLanguage(event.currentTarget.dataset.language);
+  applyTranslations();
+  render(currentState);
+  await chrome.storage.local.set({ [LANGUAGE_KEY]: language });
 }
 
 document.querySelector("#start").addEventListener("click", startCheck);
 document.querySelector("#retry").addEventListener("click", startCheck);
 homeButton.addEventListener("click", goHome);
 refreshButton.addEventListener("click", startCheck);
-
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes[STATE_KEY]) render(changes[STATE_KEY].newValue);
+languageButtons.forEach((button) => button.addEventListener("click", setLanguage));
+document.addEventListener("click", (event) => {
+  if (!settings.contains(event.target)) settings.open = false;
 });
 
-const stored = await chrome.storage.local.get(STATE_KEY);
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local") return;
+  if (changes[LANGUAGE_KEY] && changes[LANGUAGE_KEY].newValue !== language) {
+    language = normalizeLanguage(changes[LANGUAGE_KEY].newValue || chrome.i18n.getUILanguage());
+    applyTranslations();
+    render(currentState);
+  }
+  if (changes[STATE_KEY]) render(changes[STATE_KEY].newValue);
+});
+
+const stored = await chrome.storage.local.get([STATE_KEY, LANGUAGE_KEY]);
+language = normalizeLanguage(stored[LANGUAGE_KEY] || chrome.i18n.getUILanguage());
+applyTranslations();
 render(stored[STATE_KEY]);

@@ -4,16 +4,16 @@ const REPORT_URL = "https://x.com/i/under_the_hood";
 const STATE_KEY = "appState";
 const JOB_KEY = "activeCheck";
 
-const ERROR_MESSAGES = {
-  LOGIN_REQUIRED: "请先登录 X，再重新检查。",
-  POST_REQUIREMENT: "上月发帖不足 10 条，暂时无法生成报告。",
-  AGE_REQUIREMENT: "账号注册不足 1 年，暂时无法生成报告。",
-  NOT_ELIGIBLE: "当前账号暂时无法生成报告，请确认上月发帖不少于 10 条且账号注册满 1 年。",
-  DOWNLOAD_NOT_FOUND: "未找到 X 的报告下载入口，请稍后重试。",
-  CAPTURE_TIMEOUT: "报告下载成功，但读取超时，请重新检查。",
-  TAB_CLOSED: "检查页面已关闭，请重新检查。",
-  UNKNOWN: "检查失败，请稍后重试。",
-};
+const ERROR_CODES = new Set([
+  "LOGIN_REQUIRED",
+  "POST_REQUIREMENT",
+  "AGE_REQUIREMENT",
+  "NOT_ELIGIBLE",
+  "DOWNLOAD_NOT_FOUND",
+  "CAPTURE_TIMEOUT",
+  "TAB_CLOSED",
+  "UNKNOWN",
+]);
 
 async function getJob() {
   const stored = await chrome.storage.session.get(JOB_KEY);
@@ -38,7 +38,7 @@ async function finishJob(state, tabId, closeTab = true) {
 
 async function failJob(code, tabId, closeTab = true) {
   await finishJob(
-    { status: "error", message: ERROR_MESSAGES[code] || ERROR_MESSAGES.UNKNOWN },
+    { status: "error", code: ERROR_CODES.has(code) ? code : "UNKNOWN" },
     tabId,
     closeTab,
   );
