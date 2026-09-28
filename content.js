@@ -17,7 +17,10 @@
       finished ||
       event.source !== window ||
       event.origin !== location.origin ||
-      event.data?.channel !== channel
+      event.data?.channel !== channel ||
+      event.data?.type !== "REPORT_CAPTURED" ||
+      !Array.isArray(event.data?.report?.postLabels) ||
+      !Array.isArray(event.data?.report?.accountLabels)
     ) {
       return;
     }
@@ -29,7 +32,7 @@
 
   function findDownloadButton() {
     const signal = document.querySelector(
-      'a[download], a[href^="blob:"], [data-testid*="download" i], [data-icon*="download" i]',
+      'a[href^="https://jf.x.com/under_the_hood/download"], a[download], a[href^="blob:"], [data-testid*="download" i], [data-icon*="download" i]',
     );
     const signaledButton = signal?.closest('button, a, [role="button"]');
     if (
@@ -78,7 +81,12 @@
 
       const button = findDownloadButton();
       if (button) {
-        button.click();
+        const url = button.href || button.getAttribute("href");
+        if (url?.startsWith("https://jf.x.com/under_the_hood/download")) {
+          window.postMessage({ channel, type: "FETCH_REPORT", url }, location.origin);
+        } else {
+          button.click();
+        }
         captureTimer = setTimeout(() => sendError("CAPTURE_TIMEOUT"), 10_000);
         return;
       }

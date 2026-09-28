@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "default_locale": "zh_CN",
   "description": "__MSG_extensionDescription__",
   "action": {
@@ -26,13 +26,13 @@
   "host_permissions": ["https://x.com/*"],
   "content_scripts": [
     {
-      "matches": ["https://x.com/i/under_the_hood*"],
+      "matches": ["https://x.com/i/under_the_hood*", "https://x.com/i/jf/under_the_hood*"],
       "js": ["capture-main.js"],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
-      "matches": ["https://x.com/i/under_the_hood*"],
+      "matches": ["https://x.com/i/under_the_hood*", "https://x.com/i/jf/under_the_hood*"],
       "js": ["content.js"],
       "run_at": "document_start"
     }

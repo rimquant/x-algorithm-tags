@@ -11,14 +11,16 @@ const chineseLocale = JSON.parse(await readFile(new URL("./_locales/zh_CN/messag
 const popupHtml = await readFile(new URL("./popup.html", import.meta.url), "utf8");
 const popupCss = await readFile(new URL("./popup.css", import.meta.url), "utf8");
 const popupScript = await readFile(new URL("./popup.mjs", import.meta.url), "utf8");
+const captureMainScript = await readFile(new URL("./capture-main.js", import.meta.url), "utf8");
 const contentScript = await readFile(new URL("./content.js", import.meta.url), "utf8");
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, "__MSG_extensionName__");
-assert.equal(manifest.version, "0.1.2");
+assert.equal(manifest.version, "0.1.3");
 assert.equal(manifest.default_locale, "zh_CN");
 assert.equal(englishLocale.extensionName.message, "X Recommendation Checker");
 assert.equal(chineseLocale.extensionName.message, "X 推荐检查器");
 assert.deepEqual(manifest.permissions, ["storage"]);
+assert.ok(manifest.content_scripts.every(({ matches }) => matches.includes("https://x.com/i/jf/under_the_hood*")));
 assert.match(popupHtml, /id="settings-menu"/);
 assert.match(popupHtml, /data-i18n="settings"[\s\S]*id="language-options"[\s\S]*id="version"/);
 assert.match(popupHtml, /data-language="en"[^>]*>EN<[\s\S]*data-language="zh"[^>]*>中文</);
@@ -98,18 +100,23 @@ assert.ok(knownLabelTitles("account", "en").includes("Read-only account"));
 assert.equal(knownLabelTitles("account").length, knownLabelTitles("account", "en").length);
 assert.throws(() => normalizeReport({ postLabels: [], accountLabels: null }), /标签列表/);
 
-function downloadClicks(tagName, label, role = "", signal = "") {
+function downloadActions(tagName, label, role = "", signal = "") {
   let clicks = 0;
+  let messageListener;
+  const messages = [];
+  const reports = [];
   const attributes = {
     role,
     ...(signal === "testid" ? { "data-testid": "download-report" } : {}),
     ...(signal === "download" ? { download: "report.json" } : {}),
     ...(signal === "blob" ? { href: "blob:https://x.com/report" } : {}),
+    ...(signal === "jf" ? { href: "https://jf.x.com/under_the_hood/download" } : {}),
   };
   const control = {
     tagName,
     textContent: label,
     disabled: false,
+    href: attributes.href || "",
     getAttribute(name) {
       return attributes[name] || "";
     },
@@ -125,6 +132,7 @@ function downloadClicks(tagName, label, role = "", signal = "") {
       if (signal === "testid" && selector.includes("data-testid")) return control;
       if (signal === "download" && selector.includes("a[download]")) return control;
       if (signal === "blob" && selector.includes('a[href^="blob:"]')) return control;
+      if (signal === "jf" && selector.includes("jf.x.com")) return control;
       if (signal === "icon" && selector.includes("data-icon")) return icon;
       return null;
     },
@@ -134,13 +142,22 @@ function downloadClicks(tagName, label, role = "", signal = "") {
       return [];
     },
   };
-  const window = { addEventListener() {} };
+  const window = {
+    addEventListener(type, listener) {
+      if (type === "message") messageListener = listener;
+    },
+    postMessage(message, targetOrigin) {
+      messages.push({ message, targetOrigin });
+      messageListener?.({ source: window, origin: targetOrigin, data: message });
+    },
+  };
   vm.runInNewContext(contentScript, {
     chrome: {
       runtime: {
         lastError: null,
         sendMessage(message, callback) {
           if (message.type === "PAGE_READY") callback({ run: true });
+          if (message.type === "REPORT_CAPTURED") reports.push(message.report);
         },
       },
     },
@@ -150,17 +167,74 @@ function downloadClicks(tagName, label, role = "", signal = "") {
     setTimeout() { return 1; },
     window,
   });
-  return clicks;
+  return { clicks, messages, reports };
 }
 
-assert.equal(downloadClicks("BUTTON", "Download report"), 1);
-assert.equal(downloadClicks("BUTTON", "下载报告"), 1);
-assert.equal(downloadClicks("DIV", "Download report", "button"), 1);
-assert.equal(downloadClicks("BUTTON", "Télécharger le rapport", "", "testid"), 1);
-assert.equal(downloadClicks("BUTTON", "Baixar relatório", "", "icon"), 1);
-assert.equal(downloadClicks("A", "Rapport", "", "download"), 1);
-assert.equal(downloadClicks("A", "Bericht", "", "blob"), 1);
-assert.equal(downloadClicks("BUTTON", "Continuer"), 0);
+assert.equal(downloadActions("BUTTON", "Download report").clicks, 1);
+assert.equal(downloadActions("BUTTON", "下载报告").clicks, 1);
+assert.equal(downloadActions("DIV", "Download report", "button").clicks, 1);
+assert.equal(downloadActions("BUTTON", "Télécharger le rapport", "", "testid").clicks, 1);
+assert.equal(downloadActions("BUTTON", "Baixar relatório", "", "icon").clicks, 1);
+assert.equal(downloadActions("A", "Rapport", "", "download").clicks, 1);
+assert.equal(downloadActions("A", "Bericht", "", "blob").clicks, 1);
+assert.equal(downloadActions("BUTTON", "Continuer").clicks, 0);
+assert.deepEqual(JSON.parse(JSON.stringify(downloadActions("A", "Download", "", "jf"))), {
+  clicks: 0,
+  messages: [{
+    message: {
+      channel: "x-visibility-report-v1",
+      type: "FETCH_REPORT",
+      url: "https://jf.x.com/under_the_hood/download",
+    },
+    targetOrigin: "https://x.com",
+  }],
+  reports: [],
+});
+
+const captureListeners = {};
+const captureMessages = [];
+const fetchedUrls = [];
+const captureWindow = {
+  addEventListener(type, listener) {
+    captureListeners[type] = listener;
+  },
+  postMessage(message, targetOrigin) {
+    captureMessages.push({ message, targetOrigin });
+  },
+};
+class TestURL extends URL {}
+TestURL.createObjectURL = () => "blob:https://x.com/report";
+vm.runInNewContext(captureMainScript, {
+  Blob,
+  fetch: async (url) => {
+    fetchedUrls.push(String(url));
+    return { ok: true, json: async () => report };
+  },
+  location: { origin: "https://x.com" },
+  URL: TestURL,
+  window: captureWindow,
+});
+await captureListeners.message({
+  source: captureWindow,
+  origin: "https://x.com",
+  data: {
+    channel: "x-visibility-report-v1",
+    type: "FETCH_REPORT",
+    url: "https://jf.x.com/under_the_hood/download",
+  },
+});
+await new Promise(setImmediate);
+assert.deepEqual(fetchedUrls, ["https://jf.x.com/under_the_hood/download"]);
+assert.deepEqual(JSON.parse(JSON.stringify(captureMessages.at(-1))), {
+  message: { channel: "x-visibility-report-v1", type: "REPORT_CAPTURED", report },
+  targetOrigin: "https://x.com",
+});
+await captureListeners.message({
+  source: captureWindow,
+  origin: "https://x.com",
+  data: { channel: "x-visibility-report-v1", type: "FETCH_REPORT", url: "https://example.com/report" },
+});
+assert.equal(fetchedUrls.length, 1);
 
 const stores = { local: {}, session: {} };
 const listeners = {};
@@ -228,7 +302,7 @@ assert.equal(stores.session.activeCheck, undefined);
 assert.deepEqual(removedTabs, [7]);
 
 await dispatch({ type: "START_CHECK" });
-assert.deepEqual(await dispatch({ type: "REPORT_ERROR", code: "LOGIN_REQUIRED" }, { tab: { id: 7 } }), { ok: true });
+await listeners.updated(7, { url: "https://x.com/i/jf/onboarding/web?mode=login" });
 assert.deepEqual(stores.local.appState, { status: "error", code: "LOGIN_REQUIRED" });
 
-console.log("v0.1.2 checks passed");
+console.log("v0.1.3 checks passed");

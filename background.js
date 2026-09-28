@@ -116,7 +116,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   const job = await getJob();
   if (job?.tabId !== tabId) return;
 
-  if (/\/i\/flow\/login|\/login(?:\?|$)/.test(changeInfo.url)) {
+  if (/\/i\/flow\/login|\/i\/jf\/onboarding\/web|\/login(?:\?|$)/.test(changeInfo.url)) {
     await failJob("LOGIN_REQUIRED", tabId);
   }
 });
